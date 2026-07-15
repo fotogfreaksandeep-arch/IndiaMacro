@@ -26,6 +26,44 @@ The Bulletin can lag RBI's dedicated monthly Sectoral Deployment release.
 while `freshness_status` reports the comparison with the dedicated release
 index. IndiaMacro never requests the dedicated release's blocked XLSX file.
 
+## Verified publication history
+
+The historical connector covers the 12 verified RBI Bulletin issues from July
+2025 through June 2026, inclusively:
+
+```python
+from indiamacro import rbi
+
+history = rbi.sectoral_credit_history(
+    start_issue="2025-07",
+    end_issue="2026-06",
+)
+
+vintages = history.vintages
+current = history.current_observations
+
+non_food = history.select(
+    series_id="RBI.SECTION42.NON_FOOD_CREDIT.OUTSTANDING",
+    view="current",
+)
+non_food_yoy = history.select(
+    series_id="RBI.SECTION42.NON_FOOD_CREDIT.YOY_GROWTH_REPORTED",
+    view="current",
+)
+resolved = history.resolve(policy="latest_publication", as_of="2026-04-30")
+```
+
+Historical collections are immutable tuples of frozen records with `Decimal`
+values; selection and resolution do not return pandas objects. The complete
+range contains 5,950 published-vintage observations and 3,060 current
+observations. Each Non-food Credit selection above yields 12 chart-ready
+points. The January-to-February 2026 boundary changes the current-date basis
+from the last reporting Friday to calendar month-end, so a continuous
+publication sequence does not imply unchanged methodology.
+
+See the [historical API guide](docs/usage/rbi_sectoral_credit_history.md) for
+cache, offline replay, hash, resolution, and exception details.
+
 ## Refresh, offline use, and cache
 
 ```python
@@ -70,8 +108,10 @@ The exact columns and serialization rules are documented in
 
 ## Current limitations
 
-Only `RBI_BULLETIN_SECTORAL_CREDIT_V1` is supported. IndiaMacro does not yet
-provide historical ingestion, archive compatibility, other RBI datasets,
-DBIE integration, forecasting, or a general Indian macro-data platform.
+The current connector supports its strict v1 layout. Historical support begins
+with the July 2025 Bulletin and ends with the June 2026 Bulletin. Those are
+verified support boundaries, not the full availability of sectoral-credit data
+from RBI. IndiaMacro does not yet provide other RBI datasets, DBIE integration,
+forecasting, or a general Indian macro-data platform.
 
 IndiaMacro is licensed under the [MIT License](LICENSE).
