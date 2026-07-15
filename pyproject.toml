@@ -4,16 +4,33 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "indiamacro"
-version = "0.1.0"
-description = "Programmatic access to official Indian macroeconomic data"
+version = "0.2.0"
+description = "Auditable programmatic access to official Indian macroeconomic data"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 dependencies = ["pandas>=2.0", "platformdirs>=4.0", "requests>=2.31"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
 
 [project.optional-dependencies]
 plot = ["matplotlib>=3.8"]
+test = ["pytest>=8,<9", "ruff>=0.12"]
+build = ["build>=1.2", "twine>=6"]
+
+[project.urls]
+Homepage = "https://github.com/fotogfreaksandeep-arch/IndiaMacro"
+Repository = "https://github.com/fotogfreaksandeep-arch/IndiaMacro.git"
+Issues = "https://github.com/fotogfreaksandeep-arch/IndiaMacro/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

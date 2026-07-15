@@ -23,6 +23,7 @@ from platformdirs import user_cache_path
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from indiamacro import __version__
 from indiamacro.rbi import sectoral_credit_bulletin as v1
 from indiamacro.rbi import sectoral_credit_bulletin_v2 as v2
 from indiamacro.rbi import sectoral_credit_transition_2026 as transition
@@ -45,7 +46,9 @@ MAX_RESPONSE_BYTES: Final = 5 * 1024 * 1024
 CHUNK_SIZE: Final = 64 * 1024
 CONNECT_TIMEOUT_SECONDS: Final = 10
 READ_TIMEOUT_SECONDS: Final = 45
-USER_AGENT: Final = "IndiaMacro/0.1.0 RBI-sectoral-credit-history (+https://rbi.org.in/)"
+USER_AGENT: Final = (
+    f"IndiaMacro/{__version__} RBI-sectoral-credit-history (+https://rbi.org.in/)"
+)
 EXPECTED_FULL_SEMANTIC_HASH: Final = (
     "1c20933973f8652fffdfa4a83e9914fa929bf811c503bd209c430c43d6f6e431"
 )

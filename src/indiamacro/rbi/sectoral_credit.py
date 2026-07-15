@@ -22,6 +22,7 @@ from platformdirs import user_cache_path
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from indiamacro import __version__
 from indiamacro.rbi.sectoral_credit_bulletin import (
     DATASET_ID,
     INDUSTRY_TITLE,
@@ -40,7 +41,9 @@ MAX_RESPONSE_BYTES: Final = 5 * 1024 * 1024
 CHUNK_SIZE: Final = 64 * 1024
 CONNECT_TIMEOUT_SECONDS: Final = 10
 READ_TIMEOUT_SECONDS: Final = 45
-USER_AGENT: Final = "IndiaMacro/0.1.0 RBI-sectoral-credit (+https://rbi.org.in/)"
+USER_AGENT: Final = (
+    f"IndiaMacro/{__version__} RBI-sectoral-credit (+https://rbi.org.in/)"
+)
 
 TABLE_TITLES: Final = {
     "major_sectors": MAJOR_TITLE,

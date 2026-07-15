@@ -1,10 +1,41 @@
 # IndiaMacro
 
-IndiaMacro v0.1.0 is a focused proof of concept for programmatic access to one
-official Indian macroeconomic dataset: RBI Sectoral Deployment of Bank Credit.
-It discovers and parses RBI Bulletin Current Statistics Tables 15 and 16.
+IndiaMacro is a focused, auditable data-access library for official Indian
+macroeconomic data. Version 0.2.0 is a local release candidate covering one
+dataset: RBI Sectoral Deployment of Bank Credit from RBI Bulletin Current
+Statistics Tables 15 and 16.
 
-## Quick start
+Verified historical support currently covers the 12 Bulletin issues from July
+2025 through June 2026. This is a tested IndiaMacro boundary, not the full
+availability of RBI data.
+
+## Install the local release candidate
+
+Version 0.2.0 has not been published to PyPI. Install from this source checkout:
+
+```bash
+python -m pip install .
+```
+
+Or, after local release artifacts have been prepared, install the exact wheel:
+
+```bash
+python -m pip install ./dist/indiamacro-0.2.0-py3-none-any.whl
+```
+
+Matplotlib is optional and is installed only when requested:
+
+```bash
+python -m pip install ".[plot]"
+# retained local artifact:
+python -m pip install "./dist/indiamacro-0.2.0-py3-none-any.whl[plot]"
+```
+
+The standard published-package forms are `pip install indiamacro` and
+`pip install "indiamacro[plot]"`, respectively, but they do **not** install this
+unpublished 0.2.0 release candidate. Use the local commands above for this RC.
+
+## Retrieve current data
 
 ```python
 from indiamacro import rbi
@@ -69,7 +100,7 @@ cache, offline replay, hash, resolution, and exception details.
 Plotting is an optional downstream demonstration:
 
 ```bash
-pip install "indiamacro[plot]"
+python -m pip install ".[plot]"
 python scripts/plot_rbi_sectoral_credit_history.py --offline
 ```
 
@@ -90,6 +121,13 @@ credit = rbi.sectoral_credit(refresh=True)
 
 # Guarantee no network session is created.
 credit = rbi.sectoral_credit(offline=True)
+
+# Replay verified historical issues from their separate history cache.
+history = rbi.sectoral_credit_history(
+    "2025-07",
+    "2026-06",
+    offline=True,
+)
 ```
 
 An explicit `cache_dir` may be passed to any call. Otherwise
@@ -121,12 +159,25 @@ IndiaMacro distinguishes three hash concepts:
 The exact columns and serialization rules are documented in
 [`docs/contracts/rbi_sectoral_credit_bulletin_v1.md`](docs/contracts/rbi_sectoral_credit_bulletin_v1.md).
 
+## Vintages and explicit resolution
+
+`history.vintages` retains every published value and reference observation;
+repeated publications and later revisions remain separate. The
+`history.current_observations` view contains each release's current outstanding
+value and RBI-reported growth measures. Neither collection silently chooses a
+latest value.
+
+Use `history.resolve(policy="latest_publication")` when a resolved view is
+explicitly required. Its optional `as_of="YYYY-MM-DD"` cutoff excludes later
+publications while retaining the selected publication and provenance.
+
 ## Current limitations
 
 The current connector supports its strict v1 layout. Historical support begins
 with the July 2025 Bulletin and ends with the June 2026 Bulletin. Those are
 verified support boundaries, not the full availability of sectoral-credit data
 from RBI. IndiaMacro does not yet provide other RBI datasets, DBIE integration,
-forecasting, or a general Indian macro-data platform.
+automatic future-layout adaptation, dashboards, forecasting, or a general
+Indian macro-data platform. Version 0.2.0 is not yet published to PyPI.
 
 IndiaMacro is licensed under the [MIT License](LICENSE).

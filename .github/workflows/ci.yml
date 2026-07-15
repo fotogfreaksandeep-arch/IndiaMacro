@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install base and test dependencies
+        run: python -m pip install -e ".[test]"
+      - name: Verify base import without plotting extra
+        run: |
+          python -c "import importlib.util, indiamacro; from indiamacro import rbi; assert importlib.util.find_spec('matplotlib') is None"
+      - name: Install and verify plotting extra
+        run: |
+          python -m pip install -e ".[plot]"
+          python -c "import matplotlib; from indiamacro import rbi; assert callable(rbi.plot_sectoral_credit_history)"
+      - name: Ruff
+        run: ruff check .
+      - name: Offline serial tests
+        run: pytest -q
+      - name: Validate package build
+        if: matrix.python-version == '3.12'
+        run: |
+          python -m pip install -e ".[build]"
+          python -m build
+          python -m twine check dist/*

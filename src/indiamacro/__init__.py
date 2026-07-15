@@ -2,6 +2,11 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
+try:
+    __version__ = version("indiamacro")
+except PackageNotFoundError:
+    __version__ = "0+unknown"
+
 from indiamacro import rbi as rbi
 
 from indiamacro.rbi.sectoral_credit_bulletin import (
@@ -16,11 +21,6 @@ from indiamacro.rbi.sectoral_credit_bulletin import (
     observations_to_csv_bytes,
     parse_sectoral_credit_bulletin,
 )
-
-try:
-    __version__ = version("indiamacro")
-except PackageNotFoundError:
-    __version__ = "0+unknown"
 
 __all__ = [
     "AmbiguousTableError",
