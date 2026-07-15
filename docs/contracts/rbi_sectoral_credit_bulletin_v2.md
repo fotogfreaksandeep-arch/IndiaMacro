@@ -176,3 +176,9 @@ does not retrieve archive pages, ingest incrementally, select a latest vintage,
 construct a resolved history, change the public snapshot schema, provide an API,
 or generate charts. Generated evidence and raw pages remain ignored under
 `spike-artifacts/`.
+
+January–May 2026 are governed by the separate bounded transition contracts in
+`rbi_sectoral_credit_2026_transition.md`. The v2-to-January taxonomy boundary is
+exact and retains the last-reporting-Friday methodology; the later
+January-to-February boundary is separately marked as a date-basis change. V2's
+support interval is not widened by those contracts.

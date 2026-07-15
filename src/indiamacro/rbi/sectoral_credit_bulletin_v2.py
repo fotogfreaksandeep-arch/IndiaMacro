@@ -782,13 +782,19 @@ def _parse_header_dates(table: _ContractTable) -> _HeaderDates:
     if len(second) != 5 or len(third) != 5:
         raise V2ContractError(f"{table.published_title}: invalid date header shape")
     full_date = _parse_date(second[0].text, context="financial-year base")
-    prior = v1._combine_month_day_year(third[0].text, second[1].text, context="prior year")
-    prior_period = v1._combine_month_day_year(
-        third[1].text, second[2].text, context="prior-period reference"
-    )
-    current = v1._combine_month_day_year(
-        third[2].text, second[2].text, context="current observation"
-    )
+    year_cells = second[1:3]
+    years = [
+        cell.text
+        for cell in year_cells
+        for _ in range(cell.colspan)
+    ]
+    if len(years) != 3 or not all(re.fullmatch(r"20\d{2}", year) for year in years):
+        raise V2ContractError(f"{table.published_title}: invalid year grouping")
+    outstanding_dates = [
+        v1._combine_month_day_year(cell.text, year, context=f"outstanding column {index}")
+        for index, (cell, year) in enumerate(zip(third[:3], years, strict=True), start=2)
+    ]
+    prior, prior_period, current = outstanding_dates
     return _HeaderDates(full_date, prior, prior_period, current, third[3].text)
 
 
@@ -918,6 +924,8 @@ def _release_observation(
     value: Decimal | None,
     unit: str,
     column_role: str,
+    layout_id: str = LAYOUT_ID,
+    parser_version: str = PARSER_VERSION,
 ) -> dict[str, Any]:
     mapping = row.mapping
     return {
@@ -935,8 +943,8 @@ def _release_observation(
         "unit": unit,
         "population_id": mapping.population_id,
         "column_role": column_role,
-        "layout_id": LAYOUT_ID,
-        "parser_version": PARSER_VERSION,
+        "layout_id": layout_id,
+        "parser_version": parser_version,
         "source_url": source.source_url,
         "source_sha256": source.source_sha256,
         "is_provisional": True,
@@ -953,6 +961,8 @@ def _rows_to_observations(
     *,
     section42_override: str | None,
     skip_source_row_code: str | None = None,
+    layout_id: str = LAYOUT_ID,
+    parser_version: str = PARSER_VERSION,
 ) -> tuple[list[dict[str, Any]], int]:
     output: list[dict[str, Any]] = []
     emitted = 0
@@ -969,6 +979,8 @@ def _rows_to_observations(
             "row": row,
             "publication_date": source.publication_date,
             "bulletin_period": source.bulletin_period,
+            "layout_id": layout_id,
+            "parser_version": parser_version,
         }
         release_rows = [
                 _release_observation(
