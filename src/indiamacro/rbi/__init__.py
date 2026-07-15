@@ -41,6 +41,15 @@ from indiamacro.rbi.sectoral_credit_history import (
     UnsupportedIssueRangeError,
     sectoral_credit_history,
 )
+from indiamacro.rbi.sectoral_credit_plot import (
+    ChartAlignmentError,
+    ChartCompatibilityError,
+    PlottingDependencyError,
+    SectoralCreditChartPoint,
+    SectoralCreditPlotError,
+    plot_sectoral_credit_history,
+    sectoral_credit_history_chart_data,
+)
 
 __all__ = [
     "AmbiguousTableError",
@@ -48,6 +57,8 @@ __all__ = [
     "CacheIncompatibleError",
     "CacheIntegrityError",
     "CacheNotFoundError",
+    "ChartAlignmentError",
+    "ChartCompatibilityError",
     "DataValidationError",
     "HistoryCacheNotFoundError",
     "HistoryNote",
@@ -58,9 +69,12 @@ __all__ = [
     "ReleaseSourceManifest",
     "ResolutionConflictError",
     "ResolvedHistory",
+    "PlottingDependencyError",
+    "SectoralCreditChartPoint",
     "SectoralCreditHistoryError",
     "SectoralCreditHistoryMetadata",
     "SectoralCreditHistoryResult",
+    "SectoralCreditPlotError",
     "SectoralCreditMetadata",
     "SectoralCreditParseError",
     "SectoralCreditResult",
@@ -75,6 +89,8 @@ __all__ = [
     "UnsupportedIssueRangeError",
     "observations_to_csv_bytes",
     "parse_sectoral_credit_bulletin",
+    "plot_sectoral_credit_history",
     "sectoral_credit",
     "sectoral_credit_history",
+    "sectoral_credit_history_chart_data",
 ]

@@ -64,6 +64,21 @@ publication sequence does not imply unchanged methodology.
 See the [historical API guide](docs/usage/rbi_sectoral_credit_history.md) for
 cache, offline replay, hash, resolution, and exception details.
 
+![Two-panel RBI Non-food Credit chart showing outstanding and reported YoY growth with the January–February 2026 reporting-date boundary](docs/assets/rbi_non_food_credit_history.svg)
+
+Plotting is an optional downstream demonstration:
+
+```bash
+pip install "indiamacro[plot]"
+python scripts/plot_rbi_sectoral_credit_history.py --offline
+```
+
+The [end-to-end tutorial](docs/tutorials/rbi_sectoral_credit_end_to_end.md)
+walks through live retrieval, offline replay, selection, explicit resolution,
+CSV export, chart generation, and provenance inspection. IndiaMacro's core
+purpose remains auditable data access; the chart demonstrates what trustworthy
+downstream applications can build on that infrastructure.
+
 ## Refresh, offline use, and cache
 
 ```python
