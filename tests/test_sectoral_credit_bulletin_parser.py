@@ -86,6 +86,7 @@ def test_fixture_hashes_are_pinned() -> None:
             assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
 
 
+@pytest.mark.local_evidence
 def test_full_preserved_pages_parse_with_expected_provenance() -> None:
     major_path = FULL_FIXTURES / "bulletin_major_sectors.html"
     industry_path = FULL_FIXTURES / "bulletin_industries.html"

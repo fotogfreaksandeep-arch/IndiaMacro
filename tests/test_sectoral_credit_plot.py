@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import importlib
 import importlib.util
 import json
 import subprocess
 import sys
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -18,6 +20,7 @@ from indiamacro import rbi
 
 ROOT = Path(__file__).parents[1]
 ACCEPTANCE_CACHE = ROOT / "spike-artifacts/history-connector-v1/acceptance-cache"
+CHART_FIXTURE = ROOT / "tests/fixtures/rbi_non_food_credit_chart_v1.json"
 OUTSTANDING_ID = "RBI.SECTION42.NON_FOOD_CREDIT.OUTSTANDING"
 GROWTH_ID = "RBI.SECTION42.NON_FOOD_CREDIT.YOY_GROWTH_REPORTED"
 plot_module = importlib.import_module("indiamacro.rbi.sectoral_credit_plot")
@@ -32,9 +35,87 @@ SCRIPT_SPEC.loader.exec_module(demo)
 
 @pytest.fixture(scope="session")
 def history_result():
-    if not ACCEPTANCE_CACHE.exists():
-        pytest.skip("ignored verified history acceptance cache is unavailable")
-    return rbi.sectoral_credit_history(offline=True, cache_dir=ACCEPTANCE_CACHE)
+    fixture = json.loads(CHART_FIXTURE.read_text(encoding="utf-8"))
+    outstanding = []
+    growth = []
+    manifests = []
+    for row in fixture["rows"]:
+        issue, observed, published, value, yoy, _regime, _comparability, layout, page_id = row
+        source_url = f"https://rbi.org.in/Scripts/BS_ViewBulletin.aspx?Id={page_id}"
+        source_sha256 = hashlib.sha256(source_url.encode()).hexdigest()
+        common = {
+            "dataset_id": "RBI_SECTORAL_CREDIT",
+            "source_table": "15. Deployment of Gross Bank Credit by Major Sectors",
+            "source_row_code": "II",
+            "source_label": "Non-food Credit",
+            "observation_date": observed,
+            "comparison_date": None,
+            "publication_date": published,
+            "bulletin_period": datetime.strptime(issue, "%Y-%m").strftime("%B %Y"),
+            "population_id": "ALL_SCBS_SECTION42",
+            "layout_id": layout,
+            "parser_version": "portable-chart-fixture-v1",
+            "source_url": source_url,
+            "source_sha256": source_sha256,
+            "is_provisional": True,
+            "footnote_references": "",
+        }
+        outstanding.append(
+            rbi.HistoryObservation(
+                **common,
+                series_id=OUTSTANDING_ID,
+                measure="OUTSTANDING",
+                value=Decimal(value),
+                unit="INR_CRORE",
+                column_role="CURRENT_OBSERVATION",
+            )
+        )
+        growth.append(
+            rbi.HistoryObservation(
+                **common,
+                series_id=GROWTH_ID,
+                measure="YOY_GROWTH_REPORTED",
+                value=Decimal(yoy),
+                unit="PERCENT",
+                column_role="REPORTED_YOY_GROWTH",
+            )
+        )
+        manifests.append(
+            SimpleNamespace(
+                issue_month=issue,
+                publication_date=published,
+                major_sectors_final_url=source_url,
+                industries_final_url=source_url,
+                major_sectors_sha256=source_sha256,
+                industries_sha256=source_sha256,
+                retrieved_at_utc="2026-06-22T00:00:00Z",
+            )
+        )
+    metadata = SimpleNamespace(
+        selected_start_issue="2025-07",
+        selected_end_issue="2026-06",
+        supported_start_issue="2025-07",
+        supported_end_issue="2026-06",
+        semantic_current_sha256=fixture["semantic_current_sha256"],
+        methodology_boundaries=(
+            rbi.MethodologyBoundary(
+                from_issue="2026-01",
+                to_issue="2026-02",
+                classification="COMPARABLE_WITH_DATE_BASIS_CHANGE",
+                description=(
+                    "Current observation changes from the last reporting Friday to "
+                    "calendar month-end. Prior-year comparison dates change on the same boundary."
+                ),
+            ),
+        ),
+        source_manifests=tuple(manifests),
+    )
+    base = SimpleNamespace(
+        metadata=metadata,
+        vintages=tuple((*outstanding, *growth)),
+        current_observations=tuple((*outstanding, *growth)),
+    )
+    return FakeHistory(base, outstanding, growth)
 
 
 @pytest.fixture(scope="session")
@@ -51,6 +132,8 @@ class FakeHistory:
         self.metadata = base.metadata
         self.outstanding = tuple(outstanding)
         self.growth = tuple(growth)
+        self.vintages = base.vintages
+        self.current_observations = base.current_observations
         self.calls: list[tuple[str, str]] = []
 
     def select(self, *, series_id: str, view: str):
@@ -133,6 +216,20 @@ def test_exact_values_dates_interval_and_conversion(chart_points) -> None:
     assert chart_points[-1].observation_date == "2026-04-30"
     assert chart_points[-1].outstanding_inr_crore == Decimal("21107913")
     assert chart_points[0].outstanding_inr_lakh_crore == Decimal("182.17016")
+    assert [item.observation_date for item in chart_points] == [
+        "2025-05-30",
+        "2025-06-27",
+        "2025-07-25",
+        "2025-08-22",
+        "2025-09-19",
+        "2025-10-31",
+        "2025-11-28",
+        "2025-12-31",
+        "2026-01-31",
+        "2026-02-28",
+        "2026-03-31",
+        "2026-04-30",
+    ]
     intervals = [
         (date.fromisoformat(right.observation_date) - date.fromisoformat(left.observation_date)).days
         for left, right in zip(chart_points, chart_points[1:])
@@ -212,6 +309,15 @@ def test_methodology_classification_is_derived_from_metadata(chart_points) -> No
     assert chart_points[7].comparability_classification == (
         "COMPARABLE_WITH_DATE_BASIS_CHANGE"
     )
+    fixture_rows = json.loads(CHART_FIXTURE.read_text(encoding="utf-8"))["rows"]
+    assert [item.methodology_regime for item in chart_points] == [row[5] for row in fixture_rows]
+    assert [item.comparability_classification for item in chart_points] == [
+        row[6] for row in fixture_rows
+    ]
+    fixture_bytes = CHART_FIXTURE.read_bytes()
+    assert b"/Users/" not in fixture_bytes
+    assert b"acceptance-cache" not in fixture_bytes
+    assert b"spike-artifacts" not in fixture_bytes
 
 
 def test_chart_data_does_not_mutate_input(history_result) -> None:
@@ -281,17 +387,25 @@ def test_deterministic_csv_and_manifest_semantics(chart_points, history_result) 
     )
     assert manifest_one == manifest_two
     assert manifest_one["point_count"] == 12
-    assert manifest_one["chart_data_sha256"]
+    assert manifest_one["chart_data_sha256"] == (
+        "9767f0396ebb00416605ba3717c5f02f55d6332afc1b8cd55896ed3e4d1a03fd"
+    )
+    assert manifest_one["csv_sha256"] == (
+        "30be4ce4a0a4cfa08cd08785b878fc8a24d8565a80119f062c5cd46f40f35688"
+    )
     assert manifest_one["semantic_manifest_sha256"]
 
 
-def test_demo_runs_offline_twice_with_identical_outputs(tmp_path, monkeypatch) -> None:
+def test_demo_runs_offline_twice_with_identical_outputs(
+    history_result, tmp_path, monkeypatch
+) -> None:
     pytest.importorskip("matplotlib")
 
     def forbidden():
         raise AssertionError("offline demo created a network session")
 
     monkeypatch.setattr(history_module, "_new_session", forbidden)
+    monkeypatch.setattr(demo.rbi, "sectoral_credit_history", lambda **_kwargs: history_result)
     first_dir = tmp_path / "first"
     second_dir = tmp_path / "second"
     first = demo.generate_demo(
@@ -322,3 +436,30 @@ def test_demo_runs_offline_twice_with_identical_outputs(tmp_path, monkeypatch) -
     assert manifest["point_count"] == 12
     assert manifest["outstanding_series_id"] == OUTSTANDING_ID
     assert manifest["growth_series_id"] == GROWTH_ID
+
+
+@pytest.mark.local_evidence
+def test_real_cache_demo_replay_is_deterministic(tmp_path, monkeypatch) -> None:
+    if not ACCEPTANCE_CACHE.exists():
+        pytest.skip("local_evidence: ignored verified history acceptance cache is unavailable")
+    pytest.importorskip("matplotlib")
+
+    def forbidden():
+        raise AssertionError("offline demo created a network session")
+
+    monkeypatch.setattr(history_module, "_new_session", forbidden)
+    first = demo.generate_demo(
+        cache_dir=ACCEPTANCE_CACHE,
+        offline=True,
+        output_dir=tmp_path / "first",
+    )
+    second = demo.generate_demo(
+        cache_dir=ACCEPTANCE_CACHE,
+        offline=True,
+        output_dir=tmp_path / "second",
+    )
+    assert first == second
+    assert first["point_count"] == 12
+    assert first["chart_data_sha256"] == (
+        "9767f0396ebb00416605ba3717c5f02f55d6332afc1b8cd55896ed3e4d1a03fd"
+    )

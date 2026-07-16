@@ -14,6 +14,7 @@ from indiamacro.rbi import sectoral_credit_transition_2026 as transition
 
 ROOT = Path(__file__).resolve().parents[1]
 CENSUS_DIR = ROOT / "spike-artifacts/historical-census"
+COMPATIBILITY_FIXTURE = ROOT / "tests/fixtures/rbi_sectoral_credit_compatibility_v1.json"
 TARGETS = tuple(f"2026-{month:02d}" for month in range(1, 6))
 EXPECTED = {
     "2026-01": (transition.LAYOUT_JANUARY, 510, "2025-11-28", None),
@@ -52,6 +53,7 @@ def _parse(period: str) -> v2.ParsedSectoralCreditRelease:
     )
 
 
+@pytest.mark.local_evidence
 @pytest.mark.parametrize("period", TARGETS)
 def test_cached_hashes_detection_and_complete_release_parse(period: str) -> None:
     major_raw, industry_raw, major, industry = _pair(period)
@@ -80,6 +82,7 @@ def test_cached_hashes_detection_and_complete_release_parse(period: str) -> None
     assert parsed.metadata.growth_reconciliation_failures == 0
 
 
+@pytest.mark.local_evidence
 def test_all_twelve_releases_have_exact_positive_dispatch() -> None:
     periods = (
         *(f"2025-{month:02d}" for month in range(7, 13)),
@@ -107,6 +110,7 @@ def test_all_twelve_releases_have_exact_positive_dispatch() -> None:
     ]
 
 
+@pytest.mark.local_evidence
 def test_zero_match_and_ambiguous_dispatch_are_hard_failures() -> None:
     major_raw, industry_raw, major, industry = _pair("2026-01")
     broken = major_raw.replace(b"Growth(%)", b"Change", 1)
@@ -126,6 +130,7 @@ def test_zero_match_and_ambiguous_dispatch_are_hard_failures() -> None:
         transition._select_unique_layout((detected, detected))
 
 
+@pytest.mark.local_evidence
 @pytest.mark.parametrize(
     ("old", "new"),
     [
@@ -159,6 +164,7 @@ def test_explicit_mappings_hierarchy_memorandum_and_continuity() -> None:
         assert child.parent_row_code == "2.18"
 
 
+@pytest.mark.local_evidence
 @pytest.mark.parametrize("mutation", ["unknown", "missing"])
 def test_unknown_and_missing_rows_rejected(mutation: str) -> None:
     major_raw, industry_raw, major, industry = _pair("2026-01")
@@ -173,6 +179,7 @@ def test_unknown_and_missing_rows_rejected(mutation: str) -> None:
         )
 
 
+@pytest.mark.local_evidence
 def test_population_notes_and_month_end_methodology_are_strict() -> None:
     major_raw, industry_raw, major, industry = _pair("2026-02")
     broken_population = major_raw.replace(
@@ -195,6 +202,7 @@ def test_population_notes_and_month_end_methodology_are_strict() -> None:
         )
 
 
+@pytest.mark.local_evidence
 def test_malformed_missing_and_growth_values() -> None:
     major_raw, industry_raw, major, industry = _pair("2026-01")
     parsed = _parse("2026-01")
@@ -216,6 +224,7 @@ def test_malformed_missing_and_growth_values() -> None:
     assert missing.metadata.growth_reconciliation_skipped > 0
 
 
+@pytest.mark.local_evidence
 def test_cross_table_duplicate_and_growth_disagreement_rejected() -> None:
     major_raw, industry_raw, major, industry = _pair("2026-01")
     parsed = _parse("2026-01")
@@ -255,6 +264,7 @@ def test_taxonomy_and_comparability_boundaries_are_separate() -> None:
     assert transition.BOUNDARY_CLASSIFICATIONS[0].comparability == transition.FULLY_COMPARABLE
 
 
+@pytest.mark.local_evidence
 def test_v1_conversion_vintage_keys_and_regression_hash() -> None:
     major_raw, industry_raw, major, industry = _pair("2026-06")
     parsed = v1.parse_sectoral_credit_bulletin(
@@ -270,9 +280,11 @@ def test_v1_conversion_vintage_keys_and_regression_hash() -> None:
     assert not frame.duplicated(list(v2.VINTAGE_KEY_COLUMNS)).any()
 
 
+@pytest.mark.local_evidence
 def test_transition_evidence_is_offline_deterministic_and_v2_stable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    _census()
     def reject_network(*args: object, **kwargs: object) -> None:
         raise AssertionError("network access attempted")
 
@@ -300,3 +312,94 @@ def test_transition_evidence_is_offline_deterministic_and_v2_stable(
     }
     assert first_files == second_files
     assert first["v2_regression_semantic_sha256"] == "c350493a3ca0e9f36ef7bd99267c9a049662de2411a9e21d35d832d2fb65d1e4"
+
+
+def test_portable_compatibility_contract_and_positive_dispatch() -> None:
+    contract = json.loads(COMPATIBILITY_FIXTURE.read_text(encoding="utf-8"))
+    releases = contract["releases"]
+    assert [item["issue"] for item in releases] == [
+        *(f"2025-{month:02d}" for month in range(7, 13)),
+        *(f"2026-{month:02d}" for month in range(1, 7)),
+    ]
+    assert [item["layout_id"] for item in releases] == [
+        *([v2.LAYOUT_ID] * 6),
+        transition.LAYOUT_JANUARY,
+        *([transition.LAYOUT_FEBRUARY_APRIL] * 3),
+        transition.LAYOUT_MAY,
+        v1.LAYOUT_ID,
+    ]
+    assert sum(item["observation_count"] for item in releases) == 5950
+
+    taxonomy = contract["taxonomy_signature_sha256"]
+    for item in releases:
+        signatures = v2.ContractSignatures(
+            structural_signature_sha256=item["structural_signature_sha256"],
+            taxonomy_signature_sha256=taxonomy,
+            methodology_signature_sha256=item["methodology_signature_sha256"],
+        )
+        detected = transition.DetectedLayout(item["layout_id"], signatures, item["issue"])
+        assert transition._select_unique_layout((detected,)) is detected
+        assert len(item["structural_signature_sha256"]) == 64
+        assert len(item["methodology_signature_sha256"]) == 64
+
+    with pytest.raises(v2.LayoutDetectionError):
+        transition._select_unique_layout(())
+    first = releases[0]
+    detected = transition.DetectedLayout(
+        first["layout_id"],
+        v2.ContractSignatures(
+            structural_signature_sha256=first["structural_signature_sha256"],
+            taxonomy_signature_sha256=taxonomy,
+            methodology_signature_sha256=first["methodology_signature_sha256"],
+        ),
+        first["issue"],
+    )
+    with pytest.raises(v2.AmbiguousLayoutDetectionError):
+        transition._select_unique_layout((detected, detected))
+
+
+def test_portable_family_boundaries_roles_and_methodology() -> None:
+    contract = json.loads(COMPATIBILITY_FIXTURE.read_text(encoding="utf-8"))
+    releases = {item["issue"]: item for item in contract["releases"]}
+    profiles = contract["role_profiles"]
+
+    assert transition.SUPPORTED_PERIODS == (
+        "January 2026",
+        "February 2026",
+        "March 2026",
+        "April 2026",
+        "May 2026",
+    )
+    assert [transition._layout_for_period(period) for period in transition.SUPPORTED_PERIODS] == [
+        transition.LAYOUT_JANUARY,
+        transition.LAYOUT_FEBRUARY_APRIL,
+        transition.LAYOUT_FEBRUARY_APRIL,
+        transition.LAYOUT_FEBRUARY_APRIL,
+        transition.LAYOUT_MAY,
+    ]
+    assert [releases[period]["current_date_basis"] for period in releases][:7] == [
+        "LAST_REPORTING_FRIDAY"
+    ] * 7
+    assert [releases[period]["current_date_basis"] for period in releases][7:] == [
+        "CALENDAR_MONTH_END"
+    ] * 5
+    assert releases["2026-01"]["methodology_signature_sha256"] != releases["2026-02"][
+        "methodology_signature_sha256"
+    ]
+    assert transition.BOUNDARY_CLASSIFICATIONS[1].comparability == (
+        transition.COMPARABLE_WITH_DATE_BASIS_CHANGE
+    )
+    assert profiles[releases["2026-05"]["role_profile"]] == [
+        v2.CURRENT_OBSERVATION,
+        transition.FINANCIAL_YEAR_AND_PRIOR_YEAR_REFERENCE,
+        v2.PRIOR_PERIOD_REFERENCE,
+        v2.REPORTED_FINANCIAL_YEAR_GROWTH,
+        v2.REPORTED_YOY_GROWTH,
+    ]
+    assert profiles[releases["2026-06"]["role_profile"]] == [
+        v2.CURRENT_OBSERVATION,
+        v2.FINANCIAL_YEAR_BASE,
+        v2.PRIOR_YEAR_REFERENCE,
+        v2.REPORTED_FINANCIAL_YEAR_GROWTH,
+        v2.REPORTED_YOY_GROWTH,
+    ]

@@ -34,7 +34,7 @@ jobs:
       - name: Ruff
         run: ruff check .
       - name: Offline serial tests
-        run: pytest -q
+        run: pytest -m "not local_evidence and not live" -q -rs
       - name: Validate package build
         if: matrix.python-version == '3.12'
         run: |

@@ -257,6 +257,7 @@ def test_fetch_rejects_cross_host_redirect() -> None:
         history._fetch(FakeSession(response), history.ARCHIVE_URL, context="test")
 
 
+@pytest.mark.local_evidence
 @pytest.mark.parametrize(
     ("issue", "layout"),
     [
@@ -277,6 +278,7 @@ def test_dispatches_all_five_positive_contracts(issue: str, layout: str) -> None
     assert parsed.layout_id == layout
 
 
+@pytest.mark.local_evidence
 def test_issue_month_cannot_override_positive_content_detection() -> None:
     item = _census_issues()["2025-07"]
     major, major_url = _raw(item, "major")
@@ -287,6 +289,7 @@ def test_issue_month_cannot_override_positive_content_detection() -> None:
         )
 
 
+@pytest.mark.local_evidence
 def test_complete_offline_model_counts_and_hash(full_result) -> None:
     assert isinstance(full_result.vintages, tuple)
     assert isinstance(full_result.current_observations, tuple)
@@ -301,6 +304,7 @@ def test_complete_offline_model_counts_and_hash(full_result) -> None:
     assert len(keys) == len(set(keys))
 
 
+@pytest.mark.local_evidence
 def test_current_series_selection_is_chart_ready_and_chronological(full_result) -> None:
     outstanding = full_result.select(series_id=NON_FOOD_OUTSTANDING, view="current")
     yoy = full_result.select(series_id=NON_FOOD_YOY, view="current")
@@ -317,6 +321,7 @@ def test_current_series_selection_is_chart_ready_and_chronological(full_result) 
     assert outstanding[7].observation_date == "2025-12-31"
 
 
+@pytest.mark.local_evidence
 def test_selection_bounds_views_and_errors(full_result) -> None:
     selected = full_result.select(
         series_id=NON_FOOD_OUTSTANDING,
@@ -336,6 +341,7 @@ def test_selection_bounds_views_and_errors(full_result) -> None:
         full_result.select(series_id=NON_FOOD_OUTSTANDING, start="2026-01-02", end="2026-01-01")
 
 
+@pytest.mark.local_evidence
 def test_explicit_resolution_and_as_of(full_result) -> None:
     latest = full_result.resolve()
     cutoff = full_result.metadata.source_manifests[5].publication_date
@@ -351,6 +357,7 @@ def test_explicit_resolution_and_as_of(full_result) -> None:
         full_result.resolve(as_of="2000-01-01")
 
 
+@pytest.mark.local_evidence
 def test_same_publication_resolution_conflict_is_explicit(full_result) -> None:
     mutated = list(full_result.vintages)
     target = next(
@@ -370,6 +377,7 @@ def test_same_publication_resolution_conflict_is_explicit(full_result) -> None:
         conflicting.resolve()
 
 
+@pytest.mark.local_evidence
 def test_methodology_boundary_is_preserved(full_result) -> None:
     assert full_result.metadata.methodology_boundaries == (
         history.MethodologyBoundary(
@@ -392,6 +400,7 @@ def test_offline_reports_all_missing_issues_without_network(tmp_path, monkeypatc
     assert str(excinfo.value).endswith("2025-07, 2025-08, 2025-09")
 
 
+@pytest.mark.local_evidence
 def test_offline_cache_replay_is_hash_identical(full_cache, full_result, monkeypatch) -> None:
     monkeypatch.setattr(history, "_new_session", lambda: pytest.fail("network session created"))
     replay = history.sectoral_credit_history(offline=True, cache_dir=full_cache)
@@ -410,6 +419,7 @@ def _copy_one_issue(full_cache: Path, tmp_path: Path, issue: str = "2025-07") ->
     return next(target.iterdir())
 
 
+@pytest.mark.local_evidence
 def test_corrupt_raw_page_is_rejected(full_cache, tmp_path) -> None:
     bundle = _copy_one_issue(full_cache, tmp_path)
     (bundle / "major_sectors.html").write_bytes(b"<html>corrupt</html>")
@@ -417,6 +427,7 @@ def test_corrupt_raw_page_is_rejected(full_cache, tmp_path) -> None:
         history.sectoral_credit_history("2025-07", "2025-07", offline=True, cache_dir=tmp_path)
 
 
+@pytest.mark.local_evidence
 def test_corrupt_and_incompatible_manifest_are_distinct(full_cache, tmp_path) -> None:
     bundle = _copy_one_issue(full_cache, tmp_path)
     manifest_path = bundle / "manifest.json"
@@ -434,6 +445,7 @@ def test_corrupt_and_incompatible_manifest_are_distinct(full_cache, tmp_path) ->
         history.sectoral_credit_history("2025-07", "2025-07", offline=True, cache_dir=tmp_path)
 
 
+@pytest.mark.local_evidence
 def test_atomic_commit_is_idempotent_and_leaves_no_temporary_directory(tmp_path) -> None:
     first = _seed_issue(tmp_path, "2026-01")
     second = _seed_issue(tmp_path, "2026-01")
@@ -441,6 +453,7 @@ def test_atomic_commit_is_idempotent_and_leaves_no_temporary_directory(tmp_path)
     assert sorted(path.name for path in first.parent.iterdir()) == [first.name]
 
 
+@pytest.mark.local_evidence
 def test_refresh_failure_keeps_old_bundle_but_never_returns_it(full_cache, tmp_path, monkeypatch) -> None:
     _copy_one_issue(full_cache, tmp_path)
 
@@ -464,6 +477,7 @@ def test_refresh_failure_keeps_old_bundle_but_never_returns_it(full_cache, tmp_p
     assert history._bundle_candidates(history._history_cache_root(tmp_path), "2025-07")
 
 
+@pytest.mark.local_evidence
 def test_semantic_hash_ignores_page_chrome_but_provenance_hash_changes() -> None:
     item = _census_issues()["2025-07"]
     major, major_url = _raw(item, "major")

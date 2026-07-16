@@ -323,6 +323,7 @@ def test_deterministic_per_release_hashes() -> None:
     assert first.provenance_bound_output_sha256 == second.provenance_bound_output_sha256
 
 
+@pytest.mark.local_evidence
 def test_offline_six_release_evidence_runner_and_deterministic_hash(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

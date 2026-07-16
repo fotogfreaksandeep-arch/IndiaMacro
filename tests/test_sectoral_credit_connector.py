@@ -523,6 +523,7 @@ def test_environment_cache_directory_is_supported(monkeypatch, tmp_path) -> None
     assert _bundle_dir(configured).is_dir()
 
 
+@pytest.mark.local_evidence
 def test_full_preserved_fixture_connector_hash(monkeypatch, tmp_path) -> None:
     major_path = FULL_FIXTURES / "bulletin_major_sectors.html"
     industry_path = FULL_FIXTURES / "bulletin_industries.html"

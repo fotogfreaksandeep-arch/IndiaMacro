@@ -5,6 +5,6 @@ include pyproject.toml
 include .github/workflows/ci.yml
 recursive-include docs *.md *.svg
 recursive-include scripts *.py
-recursive-include tests *.py *.html
+recursive-include tests *.py *.html *.json
 prune spike-artifacts
 global-exclude __pycache__ *.py[cod] .DS_Store
