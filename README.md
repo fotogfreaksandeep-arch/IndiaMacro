@@ -1,39 +1,137 @@
 # IndiaMacro
 
 IndiaMacro is a focused, auditable data-access library for official Indian
-macroeconomic data. Version 0.2.0 is a local release candidate covering one
-dataset: RBI Sectoral Deployment of Bank Credit from RBI Bulletin Current
+macroeconomic data. Version 0.2.0 is available as a GitHub release and covers
+one dataset: RBI Sectoral Deployment of Bank Credit from RBI Bulletin Current
 Statistics Tables 15 and 16.
 
 Verified historical support currently covers the 12 Bulletin issues from July
 2025 through June 2026. This is a tested IndiaMacro boundary, not the full
 availability of RBI data.
 
-## Install the local release candidate
+## Built during OpenAI Build Week
 
-Version 0.2.0 has not been published to PyPI. Install from this source checkout:
+IndiaMacro existed before Build Week as v0.1.0: a current-only RBI connector
+with the June 2026 parser, cache, provenance, and offline replay. During Build
+Week, v0.2.0 added the verified July 2025–June 2026 historical path, strict
+layout-transition parsers, published vintages, explicit resolution, optional
+plotting, portable CI, and a reproducible demonstration.
+
+Codex accelerated source investigation, parser and test implementation,
+compatibility analysis, caching, the historical API, packaging, and release
+validation. The user set the scope and methodology: infrastructure before a
+dashboard, one deeply verified dataset, strict contracts instead of silent
+adaptation, explicit vintage handling, and bounded 16 GB local execution. The
+primary model used for this work was GPT-5.6 Sol with extra-high reasoning.
+
+### Judge quick start
+
+Install the exact released wheel rather than a package with the same name from
+another index:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install "https://github.com/fotogfreaksandeep-arch/IndiaMacro/releases/download/v0.2.0/indiamacro-0.2.0-py3-none-any.whl"
+```
+
+Then run:
+
+```python
+from indiamacro import rbi
+
+history = rbi.sectoral_credit_history(
+    start_issue="2025-07",
+    end_issue="2026-06",
+)
+
+points = history.select(
+    series_id="RBI.SECTION42.NON_FOOD_CREDIT.OUTSTANDING",
+    view="current",
+)
+
+print(len(history.vintages), len(history.current_observations), len(points))
+```
+
+The first live run requires access to public RBI pages and populates a
+validated cache. Subsequent runs can replay the same source material without a
+network session by passing `offline=True`.
+
+## Install v0.2.0
+
+Version 0.2.0 has not been published to PyPI. Install the exact wheel from the
+public GitHub release:
+
+IndiaMacro supports Python 3.11 and 3.12. Its portable CI suite runs on Ubuntu,
+and the release demonstration has also been validated on macOS Apple silicon.
+The released wheel is pure Python (`py3-none-any`) and has no platform-specific
+compiled extension.
+
+Create and activate an isolated environment on macOS or Linux:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+On Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+Then install the released wheel:
+
+```bash
+python -m pip install "https://github.com/fotogfreaksandeep-arch/IndiaMacro/releases/download/v0.2.0/indiamacro-0.2.0-py3-none-any.whl"
+```
+
+Matplotlib remains optional:
+
+```bash
+python -m pip install "indiamacro[plot] @ https://github.com/fotogfreaksandeep-arch/IndiaMacro/releases/download/v0.2.0/indiamacro-0.2.0-py3-none-any.whl"
+```
+
+Development installs from a source checkout remain available:
 
 ```bash
 python -m pip install .
-```
-
-Or, after local release artifacts have been prepared, install the exact wheel:
-
-```bash
-python -m pip install ./dist/indiamacro-0.2.0-py3-none-any.whl
-```
-
-Matplotlib is optional and is installed only when requested:
-
-```bash
 python -m pip install ".[plot]"
-# retained local artifact:
-python -m pip install "./dist/indiamacro-0.2.0-py3-none-any.whl[plot]"
 ```
 
-The standard published-package forms are `pip install indiamacro` and
-`pip install "indiamacro[plot]"`, respectively, but they do **not** install this
-unpublished 0.2.0 release candidate. Use the local commands above for this RC.
+Do not use `pip install indiamacro` to judge v0.2.0: this version is distributed
+through the GitHub release and has not been published to PyPI.
+
+## Test a source checkout
+
+Install the development dependencies and run the portable validation layer:
+
+```bash
+python -m pip install -e ".[test,plot,build]"
+ruff check .
+pytest -m "not local_evidence and not live" -rs
+python -m build
+python -m twine check dist/*
+```
+
+The portable suite runs serially, makes no live RBI requests, and does not
+depend on ignored local evidence. Maintainers who have the preserved RBI
+acceptance evidence can additionally run:
+
+```bash
+pytest -m local_evidence -rs
+```
+
+Live RBI acceptance remains explicitly opt-in and is excluded from ordinary
+tests and CI:
+
+```bash
+pytest -m live -rs
+```
+
+See [Testing IndiaMacro](docs/testing.md) for the purpose and evidence
+requirements of each test layer.
 
 ## Retrieve current data
 
